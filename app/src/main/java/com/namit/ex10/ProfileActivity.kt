@@ -19,6 +19,8 @@ class ProfileActivity : AppCompatActivity() {
         val BASE_URL: String = "https://hujipostpc2019.pythonanywhere.com"
     }
 
+    var user: User? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
@@ -29,14 +31,17 @@ class ProfileActivity : AppCompatActivity() {
         if (intent?.extras == null) {
             return
         }
-        val user = intent.extras!!["user"] as User
+        user = if (savedInstanceState?.getSerializable("user") != null)
+            (savedInstanceState.getSerializable("user") as User)
+        else (intent.extras!!["user"] as User)
         val token = intent.extras!!["token"] as String
         Glide
             .with(this)
-            .load(BASE_URL + user.imageUrl)
+            .load(BASE_URL + user!!.imageUrl)
             .into(findViewById(R.id.img_profile_img))
-        prettyNameView.text = if (TextUtils.isEmpty(user.prettyName)) user.username else user.prettyName
-        findViewById<TextView>(R.id.txt_user_name).text = user.username
+        prettyNameView.text =
+            if (TextUtils.isEmpty(user!!.prettyName)) user!!.username else user!!.prettyName
+        findViewById<TextView>(R.id.txt_user_name).text = user!!.username
 
 
         prettyNameView.setOnClickListener {
@@ -48,7 +53,7 @@ class ProfileActivity : AppCompatActivity() {
         findViewById<LinearLayout>(R.id.layout_root).setOnClickListener {
             if (editUserName.visibility == View.VISIBLE) {
                 val newUserName = editUserName.text.toString()
-                if (!TextUtils.isEmpty(newUserName) && !newUserName.equals(user.prettyName)) {
+                if (!TextUtils.isEmpty(newUserName) && !newUserName.equals(user!!.prettyName)) {
                     UsersRepository
                         .updatePrettyName(token, newUserName)
                         .enqueue(nameUpdateCallback())
@@ -64,14 +69,24 @@ class ProfileActivity : AppCompatActivity() {
             findViewById<EditText>(R.id.edit_username).visibility = View.VISIBLE
         }
 
-        override fun onResponse(call: Call<DataHolder<User?>>, response: Response<DataHolder<User?>>) {
+        override fun onResponse(
+            call: Call<DataHolder<User?>>,
+            response: Response<DataHolder<User?>>
+        ) {
             if (!response.isSuccessful || response.body()?.data == null) {
                 Toast.makeText(this@ProfileActivity, "Error updating name", Toast.LENGTH_SHORT)
                     .show()
             }
+            user?.prettyName = response.body()!!.data!!.prettyName
             findViewById<TextView>(R.id.txt_pretty_name).text = response.body()!!.data!!.prettyName
             findViewById<TextView>(R.id.txt_pretty_name).visibility = View.VISIBLE
             findViewById<EditText>(R.id.edit_username).visibility = View.GONE
         }
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putSerializable("user", user)
+        super.onSaveInstanceState(outState)
+    }
+
 }
